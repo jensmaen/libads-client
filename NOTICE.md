@@ -44,6 +44,8 @@ Beckhoff's build files, tests and tools.
 - A second request on the same port waits for the free slot instead of failing at once.
 - The parts were split into `local/` and `route/`, each of which can be switched off; switched-off functions return
   `ADSERR_DEVICE_SRVNOTSUPP`.
+- `AdsDevice` has two more constructors: through the local router, and over a route the program added before
+  (`AdsRouteAdded`).
 - Small fixes: missing `<stdexcept>` in `AdsDevice.cpp`; `AmsConnection.h` includes only what it needs.
 
 ## Own code

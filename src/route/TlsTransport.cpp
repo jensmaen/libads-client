@@ -98,10 +98,15 @@ struct Rng {
 	}
 };
 
+/**
+ * Never destroyed on purpose: the global router is created before the first
+ * TLS connection and therefore destroyed after a function-local static. Its
+ * connections still send close_notify then, which needs the generator.
+ */
 Rng &GetRng()
 {
-	static Rng rng;
-	return rng;
+	static Rng *const rng = new Rng;
+	return *rng;
 }
 
 std::string DefaultDirectory()

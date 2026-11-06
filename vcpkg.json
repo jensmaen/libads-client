@@ -1,6 +1,6 @@
 {
   "name": "libads-client",
-  "version-string": "0.1.0",
+  "version-string": "0.2.0",
   "builtin-baseline": "9e593bb18ea69cc5095e012465dcd675a822ed0d",
   "dependencies": [
     { "name": "mbedtls", "version>=": "3.6.5" }

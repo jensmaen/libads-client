@@ -35,6 +35,13 @@ AdsDevice::AdsDevice(AmsNetId netId, uint16_t port)
 {
 }
 
+AdsDevice::AdsDevice(AmsNetId netId, uint16_t port, AdsRouteAdded)
+	: m_NetId(new AmsNetId{ netId }, { [](AmsNetId) { return 0; } })
+	, m_Addr({ netId, port })
+	, m_LocalPort(new long{ AdsPortOpenRouteEx() }, { AdsPortCloseEx })
+{
+}
+
 long AdsDevice::DeleteNotificationHandle(uint32_t handle) const
 {
 	if (handle) {

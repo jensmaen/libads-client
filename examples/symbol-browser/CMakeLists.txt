@@ -1,0 +1,11 @@
+# Windows program that shows all variables of a PLC with their values (AdsSymbols.h); needs both parts.
+add_executable(symbol-browser WIN32 main.cpp)
+target_compile_features(symbol-browser PRIVATE cxx_std_14)
+target_compile_definitions(symbol-browser PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
+target_include_directories(symbol-browser PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../common)
+target_link_libraries(symbol-browser PRIVATE libads-client::ads-client comctl32 ws2_32)
+if(MSVC)
+    target_link_options(symbol-browser PRIVATE /MANIFEST:EMBED)
+else()
+    target_link_options(symbol-browser PRIVATE -municode)
+endif()

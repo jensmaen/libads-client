@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(libads-client VERSION 0.1.0 LANGUAGES CXX)
+project(libads-client VERSION 0.2.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 find_package(Threads REQUIRED)
@@ -16,6 +16,7 @@ option(LIBADS_CLIENT_FETCH_MBEDTLS "Download mbedTLS 3.6 if find_package() does 
 # Off when the library is part of another project (FetchContent, add_subdirectory).
 option(LIBADS_CLIENT_INSTALL "Install rules and CMake package" ${PROJECT_IS_TOP_LEVEL})
 option(LIBADS_CLIENT_BUILD_TESTS "Build the test programs" ${PROJECT_IS_TOP_LEVEL})
+option(LIBADS_CLIENT_BUILD_EXAMPLES "Build the example programs" ${PROJECT_IS_TOP_LEVEL})
 
 add_library(ads-client
     src/core/AdsDef.cpp
@@ -28,6 +29,7 @@ add_library(ads-client
     src/connection/Sockets.cpp
     src/connection/Subscriptions.cpp
     src/client/AdsDevice.cpp
+    src/client/AdsSymbols.cpp
     src/client/StandaloneAdsLib.cpp
 )
 add_library(libads-client::ads-client ALIAS ads-client)
@@ -49,7 +51,7 @@ target_include_directories(ads-client PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/client>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libads-client>"
 )
-# TcAdsAPI.h, AdsLib.h, AdsDevice.h, AdsVariable.h, AdsNotificationOOI.h and what they include.
+# TcAdsAPI.h, AdsLib.h, AdsDevice.h, AdsVariable.h, AdsNotificationOOI.h, AdsSymbols.h and what they include.
 set(LIBADS_CLIENT_PUBLIC_HEADERS
     src/local/TcAdsAPI.h
     src/local/TcAdsDef.h
@@ -59,6 +61,7 @@ set(LIBADS_CLIENT_PUBLIC_HEADERS
     src/client/AdsException.h
     src/client/AdsVariable.h
     src/client/AdsNotificationOOI.h
+    src/client/AdsSymbols.h
     src/route/TlsSettings.h
     src/core/AdsDef.h
     src/core/StandaloneAdsDef.h
@@ -148,6 +151,7 @@ if(LIBADS_CLIENT_BUILD_TESTS)
     add_subdirectory(test/fake-router)
     add_subdirectory(test/reconnect-fake)
     add_subdirectory(test/subscriptions-fake)
+    add_subdirectory(test/symbols-fake)
     if(LIBADS_CLIENT_ROUTE)
         add_subdirectory(test/route-reconnect-fake)
     endif()
@@ -162,6 +166,7 @@ if(LIBADS_CLIENT_BUILD_TESTS)
         libads_client_manual_test(tc-control)
         libads_client_manual_test(reconnect)
         libads_client_manual_test(write-control)
+        libads_client_manual_test(symbols-plc)
         if(WIN32) # windows.h directly
             libads_client_manual_test(tcadsdll-compat)
         endif()
@@ -176,5 +181,19 @@ if(LIBADS_CLIENT_BUILD_TESTS)
     if(WIN32)
         libads_client_manual_test(router-probe)
         libads_client_manual_test(router-watch)
+    endif()
+endif()
+
+if(LIBADS_CLIENT_BUILD_EXAMPLES AND WIN32 AND LIBADS_CLIENT_LOCAL AND LIBADS_CLIENT_ROUTE)
+    add_subdirectory(examples/symbol-browser)
+endif()
+if(LIBADS_CLIENT_BUILD_EXAMPLES AND NOT WIN32 AND LIBADS_CLIENT_LOCAL AND LIBADS_CLIENT_ROUTE)
+    # Skipped without ncurses (wide characters), e.g. without the package libncurses-dev.
+    set(CURSES_NEED_WIDE TRUE)
+    find_package(Curses QUIET)
+    if(CURSES_FOUND)
+        add_subdirectory(examples/symbol-browser-tui)
+    else()
+        message(STATUS "symbol-browser-tui skipped: ncurses with wide characters not found")
     endif()
 endif()

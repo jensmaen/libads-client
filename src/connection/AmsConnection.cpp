@@ -6,6 +6,10 @@
 #include "AmsConnection.h"
 #include "Log.h"
 
+// C++14 needs this definition: std::chrono::seconds takes the value by
+// reference, which odr-uses the constant (unoptimized builds fail to link)
+const int AmsConnection::RECONNECT_INTERVAL_S;
+
 AmsResponse::AmsResponse()
 	: request(nullptr)
 	, wasWritten(false)

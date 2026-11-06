@@ -53,12 +53,22 @@ using AdsResource = std::unique_ptr<T, ResourceDeleter<T> >;
 
 using AdsHandle = AdsResource<uint32_t>;
 
+/** Marks the AdsDevice of the route way whose route the program added itself */
+struct AdsRouteAdded {};
+
 struct AdsDevice {
 	/** Reaches the device over an ADS route to ipV4 (AdsPortOpenRouteEx()) */
 	AdsDevice(const std::string &ipV4, AmsNetId netId, uint16_t port);
 
 	/** Reaches the device through the local TwinCAT router (AdsPortOpenEx()) */
 	AdsDevice(AmsNetId netId, uint16_t port);
+
+	/**
+	 * Reaches the device over the route way (AdsPortOpenRouteEx()) with a
+	 * route the program added before and removes itself: AdsAddRoute(),
+	 * AdsAddRouteSecure(), AdsAddRoutePsk() or AdsAddRouteSca().
+	 */
+	AdsDevice(AmsNetId netId, uint16_t port, AdsRouteAdded);
 
 	DeviceInfo GetDeviceInfo() const;
 

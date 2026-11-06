@@ -41,7 +41,7 @@ Requires CMake 3.25 and a C++14 compiler. The library is static.
 include(FetchContent)
 FetchContent_Declare(libads-client
     GIT_REPOSITORY https://gitlab.com/fresenborg-development/libads-client.git
-    GIT_TAG v0.1.0)
+    GIT_TAG v0.2.0)
 FetchContent_MakeAvailable(libads-client)
 target_link_libraries(myprogram PRIVATE libads-client::ads-client)
 ```
@@ -73,6 +73,7 @@ As part of another project (FetchContent, `add_subdirectory`), the library build
 | `LIBADS_CLIENT_SECURE` | `ON` | Secure ADS in the route way, needs Mbed TLS 3.6 |
 | `LIBADS_CLIENT_FETCH_MBEDTLS` | `ON` | download Mbed TLS if it is not installed |
 | `LIBADS_CLIENT_BUILD_TESTS` | top level only | test programs |
+| `LIBADS_CLIENT_BUILD_EXAMPLES` | top level only | example programs (both ways; Win32 on Windows, ncurses elsewhere) |
 | `LIBADS_CLIENT_INSTALL` | top level only | install rules and CMake package |
 
 ### Mbed TLS
@@ -104,6 +105,9 @@ long status = AdsSyncReadStateReqEx(port, &plc, &adsState, &deviceState);
 AdsPortCloseEx(port);
 ```
 
+With the C++ classes, `AdsDevice{target, 851, AdsRouteAdded{}}` uses a route added like this (also a secure one);
+`AdsDevice{"192.168.0.10", target, 851}` adds a plain route itself and removes it again.
+
 ### C++ classes
 
 ```cpp
@@ -119,6 +123,66 @@ value = v + 1;           // write
 ```
 
 The classes throw `AdsException` on errors; the C functions return ADS error codes.
+
+### All variables of a PLC
+
+`AdsSymbolTable` uploads the symbols and data types of a PLC once and expands every symbol down to single values:
+members of structs and function blocks, array elements with their real bounds (`aOffset[-2]`, `aMatrix[1,2]`,
+`aNested[0][2]`), BIT members as byte and bit. `ReadElements()` reads any number of them with sum reads (at most 500
+per request) and returns one result per element.
+
+```cpp
+#include "AdsDevice.h"
+#include "AdsSymbols.h"
+
+AdsDevice plc{AmsNetId{"192.168.0.10.1.1"}, 851};
+AdsSymbolTable table{plc};                       // throws AdsException if the upload fails
+
+std::vector<AdsElement> leaves;
+table.ForEachLeaf([&](const AdsElement& e) { leaves.push_back(e); });
+const auto results = ReadElements(plc, leaves);
+for (size_t i = 0; i < leaves.size(); ++i) {
+    // leaves[i].path, .typeName, .kind, .size; results[i].error, results[i].data (raw bytes, little endian)
+}
+```
+
+A single element by its path, without regard to case:
+
+```cpp
+AdsElement pos;
+if (table.FindElement("GVL.aMachines[2].stAxis.fPos", pos)) {   // also "a[1,2]" and "a[0][2]"
+    const auto value = ReadElements(plc, table, {pos});         // throws 0x711 if the PLC has a new program
+}
+```
+
+For a tree view, `table.Root(symbol)` and `table.Children(element)` go one level at a time. Names, types and comments
+are UTF-8. The library does not turn values into text: `AdsElement::kind` and `type` (enum values, array bounds) tell
+how to read the bytes, and a `STRING` with `{attribute 'TcEncoding' := 'UTF-8'}` carries that attribute in
+`AdsElement::attributes` (otherwise it is in the PLC's code page, usually 1252). Properties are listed only if they
+have `{attribute 'monitoring' := 'call'}`; they are read through a handle by their path. Pointers, references and
+interfaces are not followed; their value is the address. When the PLC gets a new program (download or online change),
+the addresses of the table may be out of date. A download changes the symbol version, an online change does not, but
+it counts up `TwinCAT_SystemInfoVarList._AppInfo.OnlineChangeCnt`; the table keeps both. `table.IsCurrent(plc)` tells,
+and `ReadElements(plc, table, elements)` reads both along in every request and throws
+`ADSERR_DEVICE_SYMBOLVERSIONINVALID` (`0x711`) instead of returning data of another program. Upload a new table then.
+
+[`examples/symbol-browser`](examples/symbol-browser) is a Windows program (Win32 API) built on this: it adds a route
+if asked (plain, self-signed or pre-shared key), connects, shows all variables as a tree with type, size and value,
+and watches values with notifications (right click). It only reads.
+
+[`examples/symbol-browser-tui`](examples/symbol-browser-tui) does the same in a terminal (ncurses; built everywhere
+but Windows, tested on Linux), also over ssh right on a controller without a desktop (TwinCAT for Linux,
+TwinCAT/BSD). It connects as its command line says and asks for passwords before it starts:
+
+    symbol-browser-tui                                   # the PLC of this system, local TwinCAT router
+    symbol-browser-tui --psk 192.168.1.20 5.80.201.232.1.1    # Secure ADS with a pre-shared key
+    symbol-browser-tui --ssc 192.168.1.20 --add-route Administrator   # adds the route first, asks for its AmsNetId
+
+Keys: arrows move, Enter or Right/Left open and close, `/` filters, `b` shows the variables of Beckhoff's libraries,
+`n` watches a value with a notification, `p` pauses reading, `u` uploads the symbols again after a new PLC program,
+`q` quits; the mouse works too. Building it needs ncurses with wide characters (Debian/Ubuntu: `libncurses-dev`);
+without it CMake skips the program. Both examples take their value formatting from
+[`examples/common/SymbolText.h`](examples/common/SymbolText.h).
 
 ### Route way
 
@@ -179,12 +243,13 @@ After that, `AdsPortOpenRouteEx()` and all other functions work as without TLS.
 - The local way needs TwinCAT's XAR in kernel mode on Windows; the router of the user-mode XAR refuses TCP
   connections. The route way works there.
 - Not binary compatible with the `TcAdsDll`: there is no `TcAdsDll.dll` replacement, programs are rebuilt.
-- Sum commands and the special accesses of Beckhoff ADS (symbol, registry, … access) are not included yet.
+- Of the sum commands only reading is included (`ReadElements()`); writing and notifications in sums, and the
+  special accesses of Beckhoff ADS (registry, file … access), are not included yet.
 
 ## Tests
 
-`ctest` in the build folder runs the tests that need neither TwinCAT nor a network: a check of the switched-off parts
-and three tests against a fake TwinCAT router in the same process (about 15 s with `ctest -j4`). The library was also
+`ctest` in the build folder runs the tests that need neither TwinCAT nor a network: a check of the switched-off parts,
+a test that takes apart symbol uploads built after TwinCAT's format, and three tests against a fake TwinCAT router in the same process (about 15 s with `ctest -j4`). The library was also
 tested by hand against real TwinCAT systems (Windows, TwinCAT for Linux), including restarts, network outages and
 all Secure ADS modes.
 

@@ -16,6 +16,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <stdexcept>
 #include <thread>
 
@@ -167,6 +168,10 @@ struct AmsConnection {
 	State state;
 	bool stopping;
 	std::atomic<bool> closeExpected; // ExpectClose()
+	// Targets that let a request run into its timeout and sent nothing
+	// since: deleting a notification there does not wait again.
+	std::set<AmsNetId> silentTargets;
+	std::mutex silentMutex;
 	mutable std::mutex stateMutex; // guards state, stopping and socket
 	std::condition_variable stateChanged;
 	std::thread receiver;

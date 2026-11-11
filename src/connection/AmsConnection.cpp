@@ -205,6 +205,15 @@ AmsConnection::CreateNotifyMapping(uint32_t hNotify,
 long AmsConnection::DeleteNotification(const AmsAddr &amsAddr, uint32_t hNotify,
 				       uint32_t tmms, uint16_t port)
 {
+	{
+		// A target that does not answer would let every delete wait for
+		// its timeout, e.g. closing a port with many notifications. The
+		// caller forgets the notification anyway.
+		std::lock_guard<std::mutex> lock(silentMutex);
+		if (silentTargets.count(amsAddr.netId)) {
+			return ADSERR_CLIENT_SYNCTIMEOUT;
+		}
+	}
 	AmsRequest request{ amsAddr,
 			    port,
 			    AoEHeader::DEL_DEVICE_NOTIFICATION,
@@ -284,6 +293,10 @@ long AmsConnection::AdsRequest(AmsRequest &request, const uint32_t timeout)
 		const auto errorCode = response->Wait();
 
 		Free(response);
+		if (errorCode == ADSERR_CLIENT_SYNCTIMEOUT) {
+			std::lock_guard<std::mutex> lock(silentMutex);
+			silentTargets.insert(request.destAddr.netId);
+		}
 		return errorCode;
 	}
 	if (notSent && connector && !offlineError) {
@@ -619,6 +632,12 @@ void AmsConnection::Recv(const AmsTransport &rx)
 		} else {
 			/* Secure ADS: the AoE header alone tells the frame length */
 			Receive(rx, aoeHeader);
+		}
+
+		{
+			// the target answers again
+			std::lock_guard<std::mutex> lock(silentMutex);
+			silentTargets.erase(aoeHeader.sourceAddr());
 		}
 
 		if (aoeHeader.cmdId() == AoEHeader::DEVICE_NOTIFICATION) {

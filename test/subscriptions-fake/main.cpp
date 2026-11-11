@@ -98,6 +98,51 @@ long Del(AdsBackend& backend, uint16_t port, uint32_t handle) {
     return backend.DelNotification(port, &target, handle);
 }
 
+long Elapsed(Clock::time_point start) {
+    return static_cast<long>(std::chrono::duration_cast<milliseconds>(Clock::now() - start).count());
+}
+
+/**
+ * A target that stops answering, unnoticed by the connection: only the first delete waits for its timeout, the
+ * others and closing the port forget their notifications at once. Once the target sends again, deletes reach it.
+ */
+void Silent(FakeRouter& fake, AdsBackend& backend, uint16_t port) {
+    const uint32_t timeout = 300;
+    backend.SetTimeout(port, timeout);
+
+    uint32_t handles[4] = {};
+    for (auto& h : handles) Add(backend, port, &h);
+    fake.SetSilent(true);
+    auto start = Clock::now();
+    long first = Del(backend, port, handles[0]);
+    long rest = 0;
+    for (int i = 1; i < 4; ++i) rest |= Del(backend, port, handles[i]);
+    long ms = Elapsed(start);
+    check(first == ADSERR_CLIENT_SYNCTIMEOUT && rest == ADSERR_CLIENT_SYNCTIMEOUT,
+          "silent target: 4 deletes " + hex(first) + "/" + hex(rest));
+    check(ms < 2 * static_cast<long>(timeout), "silent target: 4 deletes took one timeout (" + std::to_string(ms) + " ms)");
+
+    fake.SetSilent(false); // its forgotten notifications send samples again
+    uint32_t h = 0;
+    long status = Add(backend, port, &h);
+    check(!status, "target answers again: AddNotification " + hex(status));
+    const auto count = fake.Notifications();
+    status = Del(backend, port, h);
+    check(!status && fake.Notifications() == count - 1, "target answers again: delete reaches it " + hex(status));
+
+    uint32_t more[5] = {};
+    for (auto& m : more) Add(backend, port, &m);
+    fake.SetSilent(true);
+    start = Clock::now();
+    status = Del(backend, port, more[0]);
+    status = backend.ClosePort(port);
+    ms = Elapsed(start);
+    check(!status, "silent target: ClosePort " + hex(status));
+    check(ms < 2 * static_cast<long>(timeout),
+          "silent target: delete and ClosePort with 4 notifications took one timeout (" + std::to_string(ms) + " ms)");
+    fake.SetSilent(false);
+}
+
 #if LIBADS_CLIENT_TEST_LOCAL
 void Local(FakeRouter& fake, const std::string& host) {
     std::printf("-- local part (LocalRouter)\n");
@@ -154,6 +199,8 @@ void Local(FakeRouter& fake, const std::string& host) {
     check(!status, "DelNotification after the loss " + hex(status));
     status = router.ClosePort(port2);
     check(!status, "ClosePort after the loss " + hex(status));
+
+    Silent(fake, router, router.OpenPort());
 }
 #endif
 
@@ -214,6 +261,8 @@ void Route(FakeRouter& fake, const std::string& host) {
     status = router.ClosePort(port);
     check(!status, "ClosePort " + hex(status));
     check(waitFor([&] { return fake.Notifications() == before; }, 2000), "ClosePort deleted it on the target");
+
+    Silent(fake, router, router.OpenPort());
     router.DelRoute(fakeNetId);
 }
 #endif

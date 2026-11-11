@@ -13,7 +13,8 @@ It speaks TCP itself, in two ways:
   **Secure ADS** (TLS, self-signed certificates, pre-shared key or own CA) and **reconnects** by itself after the
   target or the network was gone.
 
-On top of the C functions sit the C++ classes of Beckhoff ADS (`AdsDevice`, `AdsVariable`, `AdsNotification`).
+On top of the C functions sit the C++ classes of Beckhoff ADS (`AdsDevice`, `AdsVariable`, `AdsNotification`;
+the latter releases its symbol handle right after creating the notification).
 
 Status: 0.1, the API may change until 1.0. Tested with TwinCAT 3.1.4026 on Windows 11 (XAR in kernel mode) and
 TwinCAT for Linux; compilers clang-cl (MSVC ABI), GCC 14 and llvm-mingw.
@@ -236,6 +237,10 @@ After that, `AdsPortOpenRouteEx()` and all other functions work as without TLS.
 - **Route way:** the connection is restored in the background, immediately and then every second. Requests during
   the outage fail with `ADSERR_CLIENT_SYNCTIMEOUT` (`0x745`) after their timeout; notifications are created again on
   the target after reconnecting, with the same handles for the program.
+- **Target that does not answer:** once a request to a target ran into its timeout, deleting a notification there
+  does not wait again until the target sends something: the notification is forgotten at once and the call returns
+  `ADSERR_CLIENT_SYNCTIMEOUT`. Closing a port with many notifications, or destroying many `AdsNotification`s, so
+  takes at most one timeout. A target that answers again (any frame, also a notification) is asked as before.
 
 ## Limits
 

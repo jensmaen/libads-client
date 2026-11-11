@@ -50,9 +50,10 @@ Beckhoff's build files, tests and tools.
 
 ## Own code
 
-Copyright Jens Fresenborg, MIT: `connection/AdsBackend.h`, `connection/AmsTransport.*`, `connection/Subscriptions.*`,
-`local/LocalRouter.*`, `local/TcAdsDef.h`, `local/TcAdsAPI.h` (written from the public documentation, not copied from
-a TwinCAT installation), `route/TlsSettings.h`, `route/TlsTransport.*`, the CMake files, tests and examples.
+Copyright Jens Fresenborg, MIT: `client/AdsSymbols.*`, `connection/AdsBackend.h`, `connection/AmsTransport.*`,
+`connection/Subscriptions.*`, `local/LocalRouter.*`, `local/TcAdsDef.h`, `local/TcAdsAPI.h` (written from the public
+documentation, not copied from a TwinCAT installation), `route/TlsSettings.h`, `route/TlsTransport.*`, the CMake
+files, tests and examples.
 
 ## Third-party software
 

@@ -4,6 +4,8 @@
  */
 
 #include "AdsLib.h"
+#include "AdsBackend.h"
+#include "AmsRouter.h"
 #include "Log.h"
 #include "Sockets.h"
 #if LIBADS_CLIENT_SECURE
@@ -13,10 +15,60 @@
 #include <cstring>
 #include <limits>
 
+/** The route way, made known to the C-API of libads on first use */
+static AmsRouter &GetRouter()
+{
+	static AmsRouter router;
+	static const bool registered = (bhf::ads::RegisterBackend(router), true);
+	(void)registered;
+	return router;
+}
+
 namespace bhf
 {
 namespace ads
 {
+long AddLocalRoute(const AmsNetId ams, const char *ip)
+{
+	try {
+		return GetRouter().AddRoute(ams, ip);
+	} catch (const std::bad_alloc &) {
+		return GLOBALERR_NO_MEMORY;
+	} catch (const std::runtime_error &) {
+		return GLOBALERR_TARGET_PORT;
+	}
+}
+
+long AddLocalRouteSecure(const AmsNetId ams, const char *ip,
+			 const TlsSettings &tls)
+{
+	try {
+		return GetRouter().AddRoute(ams, ip, &tls);
+#if LIBADS_CLIENT_SECURE
+	} catch (const TlsError &e) {
+		LOG_ERROR(__FUNCTION__ << "(): " << e.what());
+		return e.adsError;
+#endif
+	} catch (const Socket::TimeoutEx &) {
+		return ADSERR_CLIENT_SYNCTIMEOUT;
+	} catch (const std::bad_alloc &) {
+		return GLOBALERR_NO_MEMORY;
+	} catch (const std::runtime_error &e) {
+		LOG_ERROR(__FUNCTION__ << "(): " << e.what());
+		return GLOBALERR_TARGET_PORT;
+	}
+}
+
+void DelLocalRoute(const AmsNetId ams)
+{
+	GetRouter().DelRoute(ams);
+}
+
+void SetLocalAddress(const AmsNetId ams)
+{
+	GetRouter().SetLocalAddress(ams);
+}
+
 static bool PrependUdpLenTagId(Frame &frame, const uint16_t length,
 			       const uint16_t tagId)
 {
@@ -352,4 +404,11 @@ void AdsDelRoute(const AmsNetId ams)
 void AdsSetLocalAddress(const AmsNetId ams)
 {
 	bhf::ads::SetLocalAddress(ams);
+}
+
+ads_i32 AdsPortOpenRouteEx()
+{
+	const auto port = GetRouter().OpenPort();
+	bhf::ads::SetLastError(port ? 0 : ROUTERERR_NOMOREQUEUES);
+	return static_cast<ads_i32>(port);
 }

@@ -1,4 +1,4 @@
-# Windows program that shows all variables of a PLC with their values (AdsSymbols.h); needs both parts.
+# Windows program that shows all variables of a PLC with their values (AdsSymbols.h); uses both ways.
 add_executable(symbol-browser WIN32 main.cpp)
 target_compile_features(symbol-browser PRIVATE cxx_std_14)
 target_compile_definitions(symbol-browser PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)

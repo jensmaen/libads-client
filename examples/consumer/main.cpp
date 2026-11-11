@@ -1,7 +1,9 @@
-// Opens a port through the local TwinCAT router and one for the route way, as code written for the TcAdsDll would.
-// Without TwinCAT the local port fails cleanly; the program only shows that headers and library fit together.
+// Opens a port through the local TwinCAT router (libads), as code written for the TcAdsDll would, and one for the
+// route way (libads-client). Without TwinCAT the local port fails cleanly; the program only shows that headers and
+// libraries fit together.
 
 #include "TcAdsAPI.h"
+#include "AdsLib.h"
 
 #include <cstdio>
 
@@ -14,7 +16,7 @@ int main() {
                     addr.netId.b[1], addr.netId.b[2], addr.netId.b[3], addr.netId.b[4], addr.netId.b[5]);
         AdsPortCloseEx(local);
     } else {
-        std::printf("local port: none (no TwinCAT router, or built without the local part)\n");
+        std::printf("local port: none (no TwinCAT router)\n");
     }
 
     const long route = AdsPortOpenRouteEx();

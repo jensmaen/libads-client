@@ -2,13 +2,15 @@
 
 include(CMakeFindDependencyMacro)
 
-# Parts this installation was built with; also as components:
-#   find_package(libads-client REQUIRED COMPONENTS local route secure)
-set(libads-client_LOCAL @LIBADS_CLIENT_LOCAL_BOOL@)
-set(libads-client_ROUTE @LIBADS_CLIENT_ROUTE_BOOL@)
+# Built with Secure ADS or not; also as component:
+#   find_package(libads-client REQUIRED COMPONENTS secure)
 set(libads-client_SECURE @LIBADS_CLIENT_SECURE_BOOL@)
 
 find_dependency(Threads)
+# libads-client uses inner headers of libads, so only exactly this version fits. First beside this installation.
+find_package(libads @LIBADS_CLIENT_LIBADS_VERSION@ EXACT CONFIG QUIET PATHS "${PACKAGE_PREFIX_DIR}" NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH)
+find_dependency(libads @LIBADS_CLIENT_LIBADS_VERSION@ EXACT)
 if(libads-client_SECURE)
     # Static library: mbedTLS is linked into the program that uses libads-client.
     # First beside this installation, where a fetched mbedTLS was installed (cmake/FetchMbedTLS.cmake). That path is
@@ -19,7 +21,5 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/libads-clientTargets.cmake")
 
-set(libads-client_local_FOUND ${libads-client_LOCAL})
-set(libads-client_route_FOUND ${libads-client_ROUTE})
 set(libads-client_secure_FOUND ${libads-client_SECURE})
 check_required_components(libads-client)

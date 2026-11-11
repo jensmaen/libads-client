@@ -1,4 +1,4 @@
-# Terminal program that shows all variables of a PLC with their values (AdsSymbols.h); needs both parts and ncurses
+# Terminal program that shows all variables of a PLC with their values (AdsSymbols.h); uses both ways, needs ncurses
 # with wide characters.
 add_executable(symbol-browser-tui main.cpp)
 target_compile_features(symbol-browser-tui PRIVATE cxx_std_14)

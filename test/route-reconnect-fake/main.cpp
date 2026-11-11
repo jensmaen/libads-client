@@ -5,7 +5,7 @@
 
 #include "AdsLib.h"
 
-#include "../fake-router/FakeRouter.h"
+#include "FakeRouter.h"
 
 #include <atomic>
 #include <chrono>

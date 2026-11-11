@@ -1,21 +1,21 @@
-// Notifications with own handles in both parts of the library, against the fake router in
-// the same process, no TwinCAT needed: LocalRouter (local part) and AmsRouter (route part) share Subscriptions.
+// Notifications with own handles, against the fake router in the same process, no TwinCAT needed:
+// LocalRouter (libads) and AmsRouter (libads-client) share Subscriptions.
 // Usage: subscriptions-fake [port]   (default 48920)
 
-#include "../fake-router/FakeRouter.h"
+#include "FakeRouter.h"
 
-// Set by CMake from LIBADS_CLIENT_LOCAL/ROUTE; without CMake both parts.
-#ifndef LIBADS_CLIENT_TEST_LOCAL
-#define LIBADS_CLIENT_TEST_LOCAL 1
+// Which part runs: the local one with libads, the route one with libads-client; set by CMake, without CMake both.
+#ifndef LIBADS_TEST_LOCAL
+#define LIBADS_TEST_LOCAL 1
 #endif
-#ifndef LIBADS_CLIENT_TEST_ROUTE
-#define LIBADS_CLIENT_TEST_ROUTE 1
+#ifndef LIBADS_TEST_ROUTE
+#define LIBADS_TEST_ROUTE 1
 #endif
 
-#if LIBADS_CLIENT_TEST_LOCAL
+#if LIBADS_TEST_LOCAL
 #include "LocalRouter.h"
 #endif
-#if LIBADS_CLIENT_TEST_ROUTE
+#if LIBADS_TEST_ROUTE
 #include "AmsRouter.h"
 #endif
 
@@ -143,7 +143,7 @@ void Silent(FakeRouter& fake, AdsBackend& backend, uint16_t port) {
     fake.SetSilent(false);
 }
 
-#if LIBADS_CLIENT_TEST_LOCAL
+#if LIBADS_TEST_LOCAL
 void Local(FakeRouter& fake, const std::string& host) {
     std::printf("-- local part (LocalRouter)\n");
     LocalRouter router(host);
@@ -204,7 +204,7 @@ void Local(FakeRouter& fake, const std::string& host) {
 }
 #endif
 
-#if LIBADS_CLIENT_TEST_ROUTE
+#if LIBADS_TEST_ROUTE
 void Route(FakeRouter& fake, const std::string& host) {
     std::printf("-- route part (AmsRouter)\n");
     AmsRouter router(AmsNetId{192, 168, 0, 50, 1, 1});
@@ -279,10 +279,10 @@ int main(int argc, char** argv) {
     }
     const auto host = "127.0.0.1:" + std::to_string(options.listenPort);
     fake.SetAdsState(5);
-#if LIBADS_CLIENT_TEST_LOCAL
+#if LIBADS_TEST_LOCAL
     Local(fake, host);
 #endif
-#if LIBADS_CLIENT_TEST_ROUTE
+#if LIBADS_TEST_ROUTE
     fake.Restart();
     Route(fake, host);
 #endif

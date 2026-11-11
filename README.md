@@ -7,7 +7,8 @@ It speaks TCP itself, in two ways:
 
 - **Local way**, the replacement for the `TcAdsDll`: through the TwinCAT router on the same computer
   (127.0.0.1:48898). Reaches everything the router has a route to. Code written for the `TcAdsDll` builds unchanged:
-  the headers `TcAdsAPI.h` and `TcAdsDef.h` carry the DLL's names and types.
+  the headers `TcAdsAPI.h` and `TcAdsDef.h` carry the DLL's names and types. This part is its own library,
+  [libads](https://gitlab.com/fresenborg-development/libads); libads-client builds on it and brings it along.
 - **Route way**, without TwinCAT on the own computer: directly to the target over an ADS route, like the standalone
   part of [Beckhoff ADS](https://github.com/Beckhoff/ADS). Adds routes on the target itself, speaks
   **Secure ADS** (TLS, self-signed certificates, pre-shared key or own CA) and **reconnects** by itself after the
@@ -16,7 +17,7 @@ It speaks TCP itself, in two ways:
 On top of the C functions sit the C++ classes of Beckhoff ADS (`AdsDevice`, `AdsVariable`, `AdsNotification`;
 the latter releases its symbol handle right after creating the notification).
 
-Status: 0.1, the API may change until 1.0. Tested with TwinCAT 3.1.4026 on Windows 11 (XAR in kernel mode) and
+Status: 0.3, the API may change until 1.0. Tested with TwinCAT 3.1.4026 on Windows 11 (XAR in kernel mode) and
 TwinCAT for Linux; compilers clang-cl (MSVC ABI), GCC 14 and llvm-mingw.
 
 ## Which way to take
@@ -29,12 +30,14 @@ TwinCAT for Linux; compilers clang-cl (MSVC ABI), GCC 14 and llvm-mingw.
 | Secure ADS | the router's business | built in (TCP 8016) |
 | Connection lost | as with the `TcAdsDll` (see below) | reconnects every second, notifications are created again |
 
-Both ways can be used in the same program. Either can be switched off at build time (see below); its functions then
-return `ADSERR_DEVICE_SRVNOTSUPP` (`0x701`), the port functions return 0.
+Both ways can be used in the same program; the C functions take ports of both. A program that needs only the local
+way from C can use libads alone.
 
 ## Using it in a CMake project
 
-Requires CMake 3.25 and a C++14 compiler. The library is static.
+Requires CMake 3.25 and a C++14 compiler. The library is static. It needs libads in exactly its own version (it
+uses inner headers of libads): a libads target the project added before, an installed package, or else it downloads
+the matching tag.
 
 **FetchContent** (simplest):
 
@@ -42,7 +45,7 @@ Requires CMake 3.25 and a C++14 compiler. The library is static.
 include(FetchContent)
 FetchContent_Declare(libads-client
     GIT_REPOSITORY https://gitlab.com/fresenborg-development/libads-client.git
-    GIT_TAG v0.2.2)
+    GIT_TAG v0.3.0)
 FetchContent_MakeAvailable(libads-client)
 target_link_libraries(myprogram PRIVATE libads-client::ads-client)
 ```
@@ -56,9 +59,11 @@ cmake --install build --prefix /path/to/install
 ```
 
 ```cmake
-find_package(libads-client 0.1 REQUIRED COMPONENTS local route secure)   # components are optional
+find_package(libads-client 0.3 REQUIRED COMPONENTS secure)   # the component is optional
 target_link_libraries(myprogram PRIVATE libads-client::ads-client)
 ```
+
+With libads installed into the same prefix (otherwise libads is downloaded and installed along).
 
 **Source copy or Git submodule:** `add_subdirectory(libads-client)` and the same `target_link_libraries`.
 
@@ -69,10 +74,9 @@ As part of another project (FetchContent, `add_subdirectory`), the library build
 
 | Option | Default | Meaning |
 |---|---|---|
-| `LIBADS_CLIENT_LOCAL` | `ON` | local way (replacement for the `TcAdsDll`) |
-| `LIBADS_CLIENT_ROUTE` | `ON` | route way |
 | `LIBADS_CLIENT_SECURE` | `ON` | Secure ADS in the route way, needs Mbed TLS 3.6 |
 | `LIBADS_CLIENT_FETCH_MBEDTLS` | `ON` | download Mbed TLS if it is not installed |
+| `LIBADS_CLIENT_FETCH_LIBADS` | `ON` | download libads if it is not found |
 | `LIBADS_CLIENT_BUILD_TESTS` | top level only | test programs |
 | `LIBADS_CLIENT_BUILD_EXAMPLES` | top level only | example programs (both ways; Win32 on Windows, ncurses elsewhere) |
 | `LIBADS_CLIENT_INSTALL` | top level only | install rules and CMake package |
@@ -253,13 +257,15 @@ After that, `AdsPortOpenRouteEx()` and all other functions work as without TLS.
 
 ## Tests
 
-`ctest` in the build folder runs the tests that need neither TwinCAT nor a network: a check of the switched-off parts,
-a test that takes apart symbol uploads built after TwinCAT's format, and three tests against a fake TwinCAT router in the same process (about 15 s with `ctest -j4`). The library was also
+`ctest` in the build folder runs the tests that need neither TwinCAT nor a network: a check of the route way through
+the C-API of libads, a test that takes apart symbol uploads built after TwinCAT's format, and two tests of the route
+way against a fake TwinCAT router in the same process (about 15 s with `ctest -j4`); libads tests its local router
+the same way. The library was also
 tested by hand against real TwinCAT systems (Windows, TwinCAT for Linux), including restarts, network outages and
 all Secure ADS modes.
 
 ## License
 
 MIT, see [`LICENSE`](LICENSE). Parts are taken from Beckhoff ADS (MIT); [`NOTICE.md`](NOTICE.md) lists them and the
-changes, and names the third-party software. This project is not affiliated with or endorsed by Beckhoff Automation.
+changes, and names the third-party software; libads has its own. This project is not affiliated with or endorsed by Beckhoff Automation.
 Beckhoff, TwinCAT and ADS are trademarks of Beckhoff Automation GmbH & Co. KG.

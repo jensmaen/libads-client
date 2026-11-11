@@ -127,6 +127,12 @@ struct AmsConnection {
 	bool WriteRouterCommand(uint16_t command, const void *data,
 				size_t length);
 
+	/**
+	 * The peer will close the connection on purpose, e.g. the local router
+	 * after a port close: its end is not logged.
+	 */
+	void ExpectClose();
+
 	SharedDispatcher
 	CreateNotifyMapping(uint32_t hNotify,
 			    std::shared_ptr<Notification> notification);
@@ -160,6 +166,7 @@ struct AmsConnection {
 	std::shared_ptr<AmsTransport> socket;
 	State state;
 	bool stopping;
+	std::atomic<bool> closeExpected; // ExpectClose()
 	mutable std::mutex stateMutex; // guards state, stopping and socket
 	std::condition_variable stateChanged;
 	std::thread receiver;

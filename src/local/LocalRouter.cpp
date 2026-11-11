@@ -189,6 +189,8 @@ long LocalRouter::ClosePort(uint16_t port)
 	// Notifications are deleted over the connection, so before it goes away.
 	subscriptions.ClosePort(port, tmms);
 	if (p->connection) {
+		// the router closes the connection of the port
+		p->connection->ExpectClose();
 		const auto lePort = bhf::ads::htole(p->addr.port);
 		if (!p->connection->WriteRouterCommand(CMD_PORT_CLOSE, &lePort,
 						       sizeof(lePort))) {

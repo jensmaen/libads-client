@@ -114,6 +114,7 @@ AmsConnection::AmsConnection(Router &__router,
 	, socket(std::move(transport))
 	, state(State::CONNECTED)
 	, stopping(false)
+	, closeExpected(false)
 	, refCount(0)
 	, invokeId(0)
 	, ownIp(socket->OwnIp())
@@ -168,6 +169,11 @@ bool AmsConnection::WriteRouterCommand(const uint16_t command,
 	frame.prepend(data, length);
 	frame.prepend(AmsTcpHeader{ static_cast<uint32_t>(length), command });
 	return frame.size() == tx->write(frame);
+}
+
+void AmsConnection::ExpectClose()
+{
+	closeExpected = true;
 }
 
 AmsConnection::~AmsConnection()
@@ -493,7 +499,12 @@ void AmsConnection::TryRecv()
 		try {
 			Recv(*rx);
 		} catch (const std::runtime_error &e) {
-			LOG_INFO(e.what());
+			// an end on purpose (destroyed, or closed by the peer
+			// as expected) is no news
+			std::lock_guard<std::mutex> lock(stateMutex);
+			if (!stopping && !closeExpected) {
+				LOG_INFO(e.what());
+			}
 			failed = true;
 		}
 		if (!connector || !failed) {

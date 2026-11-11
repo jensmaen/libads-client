@@ -15,7 +15,7 @@ elseif(LIBADS_CONSUMER_MODE STREQUAL "fetch")
     include(FetchContent)
     FetchContent_Declare(libads-client
         GIT_REPOSITORY https://gitlab.com/fresenborg-development/libads-client.git
-        GIT_TAG v0.2.0)
+        GIT_TAG v0.2.1)
     FetchContent_MakeAvailable(libads-client)
 elseif(LIBADS_CONSUMER_MODE STREQUAL "subdir")
     set(LIBADS_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." CACHE PATH "Source folder of libads-client")

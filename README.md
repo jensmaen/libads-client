@@ -42,7 +42,7 @@ Requires CMake 3.25 and a C++14 compiler. The library is static.
 include(FetchContent)
 FetchContent_Declare(libads-client
     GIT_REPOSITORY https://gitlab.com/fresenborg-development/libads-client.git
-    GIT_TAG v0.2.1)
+    GIT_TAG v0.2.2)
 FetchContent_MakeAvailable(libads-client)
 target_link_libraries(myprogram PRIVATE libads-client::ads-client)
 ```
